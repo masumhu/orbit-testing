@@ -9,7 +9,8 @@ public record RegistrationProperties(
         Duration otpTtl,
         int maxOtpAttempts,
         String otpHmacSecret,
-        String productManagerAccessCode,
-        String seniorManagerAccessCode,
-        String googleClientId
+        String googleClientId,
+        String githubClientId,
+        String githubClientSecret,
+        String githubRedirectUri
 ) { }

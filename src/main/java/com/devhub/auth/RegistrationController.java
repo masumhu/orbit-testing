@@ -34,7 +34,8 @@ public class RegistrationController {
     public OtpIssuedResponse requestSocialOtp(@PathVariable String provider, @Valid @RequestBody SocialOtpRequest request) {
         RegistrationMethod method = switch (provider.toLowerCase()) {
             case "google" -> RegistrationMethod.GOOGLE;
-            default -> throw new IllegalArgumentException("Provider must be google");
+            case "github" -> RegistrationMethod.GITHUB;
+            default -> throw new IllegalArgumentException("Provider must be google or github");
         };
         return registrationService.requestSocialOtp(method, request);
     }

@@ -6,8 +6,8 @@ import org.springframework.boot.context.properties.ConfigurationPropertiesScan;
 
 @SpringBootApplication
 @ConfigurationPropertiesScan
-public class DevHubApplication {
+public class OrbitApplication {
     public static void main(String[] args) {
-        SpringApplication.run(DevHubApplication.class, args);
+        SpringApplication.run(OrbitApplication.class, args);
     }
 }

@@ -96,12 +96,13 @@ public class TokenService {
                 .id(UUID.randomUUID().toString())
                 .claim("roles", roles)
                 .claim("email", user.email())
+                .claim("organizationId", user.organizationId())
                 .build();
         String accessToken = jwtEncoder.encode(JwtEncoderParameters.from(
                 JwsHeader.with(MacAlgorithm.HS256).build(), claims)).getTokenValue();
         return new AuthTokenResponse(accessToken, "Bearer", properties.accessTokenTtl().toSeconds(),
                 refreshToken, refreshExpiresAt,
-                new AuthUserResponse(user.id(), user.username(), user.email(), user.role()));
+                new AuthUserResponse(user.id(), user.username(), user.email(), user.role(), user.organizationId()));
     }
 
     private void revokeFamily(String familyId, Instant now) {

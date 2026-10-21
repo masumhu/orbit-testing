@@ -13,6 +13,8 @@ public record UserAccount(
         @Indexed(unique = true, sparse = true) String username,
         String passwordHash,
         RegistrationRole role,
+        @Indexed
+        String organizationId,
         RegistrationMethod registrationMethod,
         String providerSubject,
         Instant emailVerifiedAt,

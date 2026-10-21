@@ -5,6 +5,8 @@ import com.devhub.auth.RegistrationRequests.OtpIssuedResponse;
 import com.devhub.auth.RegistrationRequests.RegistrationResponse;
 import com.devhub.auth.RegistrationRequests.SocialOtpRequest;
 import com.devhub.auth.RegistrationRequests.VerifyOtpRequest;
+import com.devhub.organization.Organization;
+import com.devhub.organization.OrganizationService;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -27,28 +29,33 @@ public class RegistrationService {
     private final PasswordEncoder passwordEncoder;
     private final OtpEmailSender emailSender;
     private final SocialIdentityVerifier identityVerifier;
+    private final OrganizationService organizations;
     private final SecureRandom random = new SecureRandom();
 
     public RegistrationService(UserAccountRepository users, RegistrationChallengeRepository challenges,
                                RegistrationProperties properties, PasswordEncoder passwordEncoder,
-                               OtpEmailSender emailSender, SocialIdentityVerifier identityVerifier) {
+                               OtpEmailSender emailSender, SocialIdentityVerifier identityVerifier,
+                               OrganizationService organizations) {
         this.users = users;
         this.challenges = challenges;
         this.properties = properties;
         this.passwordEncoder = passwordEncoder;
         this.emailSender = emailSender;
         this.identityVerifier = identityVerifier;
+        this.organizations = organizations;
     }
 
     public OtpIssuedResponse requestEmailOtp(EmailOtpRequest request) {
         String email = normalizeEmail(request.email());
         String username = request.username().trim().toLowerCase(Locale.ROOT);
-        checkRoleCode(request.role(), request.companyAccessCode());
+        RegistrationContext context = resolveContext(request.organizationMode(), request.organizationName(),
+                request.organizationId(), request.role(), request.companyAccessCode());
         if (users.existsByEmail(email)) throw new IllegalStateException("An account already exists for this email");
         if (users.existsByUsername(username)) throw new IllegalStateException("Username is unavailable");
+        checkProductManagerSlot(context);
         String otp = generateOtp();
         RegistrationChallenge challenge = new RegistrationChallenge(UUID.randomUUID().toString(), email, username,
-                passwordEncoder.encode(request.password()), request.role(), RegistrationMethod.EMAIL, null,
+                passwordEncoder.encode(request.password()), context.role(), context.mode(), context.organizationId(), context.organizationName(), RegistrationMethod.EMAIL, null,
                 otpHash(otp), 0, Instant.now().plus(properties.otpTtl()), Instant.now());
         challenges.save(challenge);
         emailSender.send(email, otp);
@@ -56,13 +63,15 @@ public class RegistrationService {
     }
 
     public OtpIssuedResponse requestSocialOtp(RegistrationMethod method, SocialOtpRequest request) {
-        checkRoleCode(request.role(), request.companyAccessCode());
+        RegistrationContext context = resolveContext(request.organizationMode(), request.organizationName(),
+                request.organizationId(), request.role(), request.companyAccessCode());
         ProviderIdentity identity = identityVerifier.verify(method, request.providerToken());
         if (users.existsByEmail(identity.email())) throw new IllegalStateException("An account already exists for this email");
+        checkProductManagerSlot(context);
         String username = uniqueUsername(identity.username(), identity.email());
         String otp = generateOtp();
         RegistrationChallenge challenge = new RegistrationChallenge(UUID.randomUUID().toString(), identity.email(), username,
-                null, request.role(), method, identity.subject(), otpHash(otp), 0,
+                null, context.role(), context.mode(), context.organizationId(), context.organizationName(), method, identity.subject(), otpHash(otp), 0,
                 Instant.now().plus(properties.otpTtl()), Instant.now());
         challenges.save(challenge);
         emailSender.send(identity.email(), otp);
@@ -82,7 +91,7 @@ public class RegistrationService {
         }
         if (!MessageDigest.isEqual(challenge.otpHash().getBytes(StandardCharsets.UTF_8), otpHash(request.otp()).getBytes(StandardCharsets.UTF_8))) {
             challenges.save(new RegistrationChallenge(challenge.id(), challenge.email(), challenge.username(), challenge.passwordHash(),
-                    challenge.role(), challenge.method(), challenge.providerSubject(), challenge.otpHash(), challenge.attempts() + 1,
+                    challenge.role(), challenge.organizationMode(), challenge.organizationId(), challenge.organizationName(), challenge.method(), challenge.providerSubject(), challenge.otpHash(), challenge.attempts() + 1,
                     challenge.expiresAt(), challenge.createdAt()));
             throw new IllegalArgumentException("Verification code is invalid");
         }
@@ -90,22 +99,61 @@ public class RegistrationService {
             challenges.delete(challenge);
             throw new IllegalStateException("Email or username is already registered");
         }
+        if (challenge.role() == RegistrationRole.PRODUCT_MANAGER
+                && users.existsByOrganizationIdAndRole(challenge.organizationId(), RegistrationRole.PRODUCT_MANAGER)) {
+            challenges.delete(challenge);
+            throw new IllegalStateException("This organization already has a Product Manager");
+        }
         Instant verifiedAt = Instant.now();
         UserAccount user = users.save(new UserAccount(null, challenge.email(), challenge.username(), challenge.passwordHash(),
-                challenge.role(), challenge.method(), challenge.providerSubject(), verifiedAt, verifiedAt));
+                challenge.role(), challenge.organizationId(), challenge.method(), challenge.providerSubject(), verifiedAt, verifiedAt));
+        if (challenge.organizationMode() == OrganizationRegistrationMode.CREATE) {
+            try {
+                Organization organization = organizations.createForOwner(challenge.organizationName(), user);
+                user = users.save(new UserAccount(user.id(), user.email(), user.username(), user.passwordHash(), user.role(),
+                        organization.id(), user.registrationMethod(), user.providerSubject(), user.emailVerifiedAt(), user.createdAt()));
+            } catch (RuntimeException ex) {
+                users.delete(user);
+                throw ex;
+            }
+        }
         challenges.delete(challenge);
-        return new RegistrationResponse(user.id(), user.username(), user.email(), user.role(), user.registrationMethod(), user.emailVerifiedAt());
+        return new RegistrationResponse(user.id(), user.username(), user.email(), user.role(), user.organizationId(), user.registrationMethod(), user.emailVerifiedAt());
     }
 
-    private void checkRoleCode(RegistrationRole role, String suppliedCode) {
-        String expected = switch (role) {
-            case PRODUCT_MANAGER -> properties.productManagerAccessCode();
-            case SENIOR_MANAGER -> properties.seniorManagerAccessCode();
-            case DEVELOPER -> null;
-        };
-        if (expected == null) return;
-        if (expected.isBlank() || suppliedCode == null || !MessageDigest.isEqual(expected.getBytes(StandardCharsets.UTF_8), suppliedCode.getBytes(StandardCharsets.UTF_8))) {
-            throw new IllegalArgumentException("A valid company access code is required for this role");
+    private RegistrationContext resolveContext(OrganizationRegistrationMode mode, String organizationName,
+                                               String organizationId, RegistrationRole requestedRole, String accessCode) {
+        if (mode == null) throw new IllegalArgumentException("Choose whether to create or join an organization");
+        if (mode == OrganizationRegistrationMode.CREATE) {
+            if (organizationName == null || organizationName.isBlank() || organizationName.trim().length() > 100) {
+                throw new IllegalArgumentException("Organization name must contain 1 to 100 characters");
+            }
+            if (organizationId != null && !organizationId.isBlank()) {
+                throw new IllegalArgumentException("Do not provide an organization ID when creating an organization");
+            }
+            if (requestedRole != null && requestedRole != RegistrationRole.OWNER) {
+                throw new IllegalArgumentException("Creating an organization registers the creator as its owner");
+            }
+            return new RegistrationContext(mode, null, organizationName.trim(), RegistrationRole.OWNER);
+        }
+        if (organizationId == null || organizationId.isBlank()) throw new IllegalArgumentException("Organization ID is required to join");
+        if (requestedRole == null || requestedRole == RegistrationRole.OWNER) {
+            throw new IllegalArgumentException("Choose Product Manager, Senior Manager, or Developer when joining");
+        }
+        if (organizationName != null && !organizationName.isBlank()) {
+            throw new IllegalArgumentException("Do not provide an organization name when joining");
+        }
+        organizations.validateRoleCode(organizationId.trim(), requestedRole, accessCode);
+        return new RegistrationContext(mode, organizationId.trim(), null, requestedRole);
+    }
+
+    private record RegistrationContext(OrganizationRegistrationMode mode, String organizationId,
+                                       String organizationName, RegistrationRole role) { }
+
+    private void checkProductManagerSlot(RegistrationContext context) {
+        if (context.mode() == OrganizationRegistrationMode.JOIN && context.role() == RegistrationRole.PRODUCT_MANAGER
+                && users.existsByOrganizationIdAndRole(context.organizationId(), RegistrationRole.PRODUCT_MANAGER)) {
+            throw new IllegalStateException("This organization already has a Product Manager");
         }
     }
 

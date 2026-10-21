@@ -41,6 +41,18 @@ public class LoginService {
         return tokenService.issue(user);
     }
 
+    public AuthTokenResponse loginWithGitHubCode(String code) {
+        ProviderIdentity identity;
+        try {
+            identity = identityVerifier.verifyGitHubAuthorizationCode(code);
+        } catch (IllegalArgumentException ex) {
+            throw new AuthException();
+        }
+        UserAccount user = users.findByRegistrationMethodAndProviderSubject(RegistrationMethod.GITHUB, identity.subject())
+                .orElseThrow(AuthException::new);
+        return tokenService.issue(user);
+    }
+
     public AuthTokenResponse refresh(String refreshToken) { return tokenService.refresh(refreshToken); }
     public void logout(String refreshToken) { tokenService.revoke(refreshToken); }
 }

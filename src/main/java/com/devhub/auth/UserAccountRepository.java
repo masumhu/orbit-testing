@@ -9,6 +9,8 @@ public interface UserAccountRepository extends MongoRepository<UserAccount, Stri
     boolean existsByUsername(String username);
     java.util.Optional<UserAccount> findByEmail(String email);
     java.util.List<UserAccount> findByUsernameIn(java.util.Collection<String> usernames);
+    java.util.List<UserAccount> findByOrganizationId(String organizationId);
+    boolean existsByOrganizationIdAndRole(String organizationId, RegistrationRole role);
     Optional<UserAccount> findByEmailOrUsername(String email, String username);
     Optional<UserAccount> findByRegistrationMethodAndProviderSubject(RegistrationMethod method, String providerSubject);
 }

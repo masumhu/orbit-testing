@@ -9,7 +9,10 @@ public final class RegistrationRequests {
     private RegistrationRequests() { }
 
     public record EmailOtpRequest(
-            @NotNull RegistrationRole role,
+            @NotNull OrganizationRegistrationMode organizationMode,
+            String organizationName,
+            String organizationId,
+            RegistrationRole role,
             @NotBlank @Size(min = 3, max = 40) String username,
             @NotBlank @Email @Size(max = 254) String email,
             @NotBlank @Size(min = 12, max = 128) String password,
@@ -17,12 +20,15 @@ public final class RegistrationRequests {
     ) { }
 
     public record SocialOtpRequest(
-            @NotNull RegistrationRole role,
+            @NotNull OrganizationRegistrationMode organizationMode,
+            String organizationName,
+            String organizationId,
+            RegistrationRole role,
             @NotBlank String providerToken,
             String companyAccessCode
     ) { }
 
     public record VerifyOtpRequest(@NotBlank String challengeId, @NotBlank @Size(min = 6, max = 6) String otp) { }
     public record OtpIssuedResponse(String challengeId, java.time.Instant expiresAt) { }
-    public record RegistrationResponse(String id, String username, String email, RegistrationRole role, RegistrationMethod method, java.time.Instant emailVerifiedAt) { }
+    public record RegistrationResponse(String id, String username, String email, RegistrationRole role, String organizationId, RegistrationMethod method, java.time.Instant emailVerifiedAt) { }
 }

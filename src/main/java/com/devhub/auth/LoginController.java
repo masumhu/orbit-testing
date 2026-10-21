@@ -16,9 +16,19 @@ public class LoginController {
         return loginService.loginWithPassword(request);
     }
 
-    @PostMapping("/login/google")
-    public AuthTokenResponse googleLogin(@Valid @RequestBody LoginRequests.SocialLoginRequest request) {
-        return loginService.loginWithProvider(RegistrationMethod.GOOGLE, request.providerToken());
+    @PostMapping("/login/{provider}")
+    public AuthTokenResponse socialLogin(@PathVariable String provider, @Valid @RequestBody LoginRequests.SocialLoginRequest request) {
+        RegistrationMethod method = switch (provider.toLowerCase()) {
+            case "google" -> RegistrationMethod.GOOGLE;
+            case "github" -> RegistrationMethod.GITHUB;
+            default -> throw new IllegalArgumentException("Provider must be google or github");
+        };
+        return loginService.loginWithProvider(method, request.providerToken());
+    }
+
+    @PostMapping("/login/github/callback")
+    public AuthTokenResponse githubCallback(@Valid @RequestBody LoginRequests.GitHubCodeLoginRequest request) {
+        return loginService.loginWithGitHubCode(request.code());
     }
 
     @PostMapping("/refresh")

@@ -12,12 +12,13 @@
     <artifactId>orbit-backend</artifactId>
     <version>0.0.1-SNAPSHOT</version>
     <name>Orbit Backend</name>
-    <description>Orbit authentication API</description>
+    <description>Orbit organization and project workflow API</description>
     <properties>
         <java.version>25</java.version>
     </properties>
     <dependencies>
         <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-web</artifactId></dependency>
+        <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-websocket</artifactId></dependency>
         <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-data-mongodb</artifactId></dependency>
         <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-security</artifactId></dependency>
         <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-oauth2-resource-server</artifactId></dependency>
