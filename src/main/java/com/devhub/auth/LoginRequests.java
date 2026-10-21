@@ -1,0 +1,11 @@
+package com.devhub.auth;
+
+import jakarta.validation.constraints.NotBlank;
+
+public final class LoginRequests {
+    private LoginRequests() { }
+
+    public record PasswordLoginRequest(@NotBlank String identifier, @NotBlank String password) { }
+    public record SocialLoginRequest(@NotBlank String providerToken) { }
+    public record RefreshRequest(@NotBlank String refreshToken) { }
+}

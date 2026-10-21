@@ -1,0 +1,46 @@
+package com.devhub.auth;
+
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+
+import java.util.Locale;
+
+@Service
+public class LoginService {
+    private final UserAccountRepository users;
+    private final PasswordEncoder passwordEncoder;
+    private final SocialIdentityVerifier identityVerifier;
+    private final TokenService tokenService;
+
+    public LoginService(UserAccountRepository users, PasswordEncoder passwordEncoder,
+                        SocialIdentityVerifier identityVerifier, TokenService tokenService) {
+        this.users = users;
+        this.passwordEncoder = passwordEncoder;
+        this.identityVerifier = identityVerifier;
+        this.tokenService = tokenService;
+    }
+
+    public AuthTokenResponse loginWithPassword(LoginRequests.PasswordLoginRequest request) {
+        String identifier = request.identifier().trim().toLowerCase(Locale.ROOT);
+        UserAccount user = users.findByEmailOrUsername(identifier, identifier).orElseThrow(AuthException::new);
+        if (user.passwordHash() == null || !passwordEncoder.matches(request.password(), user.passwordHash())) {
+            throw new AuthException();
+        }
+        return tokenService.issue(user);
+    }
+
+    public AuthTokenResponse loginWithProvider(RegistrationMethod method, String providerToken) {
+        ProviderIdentity identity;
+        try {
+            identity = identityVerifier.verify(method, providerToken);
+        } catch (IllegalArgumentException ex) {
+            throw new AuthException();
+        }
+        UserAccount user = users.findByRegistrationMethodAndProviderSubject(method, identity.subject())
+                .orElseThrow(AuthException::new);
+        return tokenService.issue(user);
+    }
+
+    public AuthTokenResponse refresh(String refreshToken) { return tokenService.refresh(refreshToken); }
+    public void logout(String refreshToken) { tokenService.revoke(refreshToken); }
+}
