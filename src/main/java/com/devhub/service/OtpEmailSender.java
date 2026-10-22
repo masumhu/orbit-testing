@@ -6,10 +6,15 @@ import java.util.Map;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
+import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientResponseException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @Component
 public class OtpEmailSender {
+    private static final Logger log = LoggerFactory.getLogger(OtpEmailSender.class);
     private static final String BREVO_SEND_EMAIL_URL = "https://api.brevo.com/v3/smtp/email";
 
     private final RestClient restClient;
@@ -51,9 +56,12 @@ public class OtpEmailSender {
                     .body(request)
                     .retrieve()
                     .toBodilessEntity();
-        } catch (RuntimeException exception) {
-            // Do not include provider response bodies or request headers in errors; they may contain secrets.
-            throw new IllegalStateException("OTP email delivery failed through Brevo", exception);
+        } catch (RestClientResponseException exception) {
+            log.error("Brevo rejected the OTP email request with HTTP status {}", exception.getStatusCode().value());
+            throw new OtpEmailDeliveryException();
+        } catch (ResourceAccessException exception) {
+            log.error("Could not connect to Brevo's email API ({})", exception.getClass().getSimpleName());
+            throw new OtpEmailDeliveryException();
         }
     }
 }

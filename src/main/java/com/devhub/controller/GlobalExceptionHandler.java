@@ -3,6 +3,7 @@ package com.devhub.controller;
 import com.devhub.dto.ApiError;
 
 import com.devhub.auth.AuthException;
+import com.devhub.service.OtpEmailDeliveryException;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -41,6 +42,11 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(IllegalStateException.class)
     ResponseEntity<ApiError> conflict(IllegalStateException ex, HttpServletRequest request) {
         return error(HttpStatus.CONFLICT, ex.getMessage(), request);
+    }
+
+    @ExceptionHandler(OtpEmailDeliveryException.class)
+    ResponseEntity<ApiError> emailDelivery(OtpEmailDeliveryException ex, HttpServletRequest request) {
+        return error(HttpStatus.BAD_GATEWAY, ex.getMessage(), request);
     }
 
     @ExceptionHandler(NoSuchElementException.class)
