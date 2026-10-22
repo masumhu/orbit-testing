@@ -21,11 +21,14 @@ public class TaskService {
     private final TaskRepository tasks;
     private final ProjectService projects;
     private final ProjectRepository projectRepository;
+    private final UserNotificationService notifications;
 
-    public TaskService(TaskRepository tasks, ProjectService projects, ProjectRepository projectRepository) {
+    public TaskService(TaskRepository tasks, ProjectService projects, ProjectRepository projectRepository,
+                       UserNotificationService notifications) {
         this.tasks = tasks;
         this.projects = projects;
         this.projectRepository = projectRepository;
+        this.notifications = notifications;
     }
 
     public Task create(String userId, String projectId, TaskRequests.CreateTaskRequest request) {
@@ -64,8 +67,13 @@ public class TaskService {
         if (!developerIds.contains(developer.id())) developerIds.add(developer.id());
         projectRepository.save(new Project(project.id(), project.organizationId(), project.name(), project.description(),
                 project.productManagerId(), project.seniorManagerIds(), List.copyOf(developerIds), project.status(), project.createdAt(), Instant.now()));
-        return tasks.save(new Task(task.id(), task.organizationId(), task.projectId(), task.title(), task.description(),
+        Task assigned = tasks.save(new Task(task.id(), task.organizationId(), task.projectId(), task.title(), task.description(),
                 task.createdBySeniorManagerId(), developer.id(), task.status(), task.createdAt(), Instant.now()));
+        if (!developer.id().equals(task.assignedDeveloperId())) {
+            notifications.notifyUser(developer.id(), task.organizationId(), "TASK_ASSIGNED", "New task assigned",
+                    "You were assigned the task: " + task.title(), "TASK", task.id());
+        }
+        return assigned;
     }
 
     public Task updateStatus(String userId, String taskId, TaskRequests.UpdateTaskStatusRequest request) {

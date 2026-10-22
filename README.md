@@ -58,6 +58,17 @@ Product Managers and Senior Managers can create organization or project channels
 
 When a user leaves an organization or project, authorization checks immediately block access to its channels. Message authors can edit or soft-delete their own messages.
 
+## In-app notifications
+
+Notifications are saved per user in MongoDB. Authenticated users can:
+
+- `GET /api/v1/notifications` — list their notifications, newest first.
+- `GET /api/v1/notifications/unread-count` — get the unread badge count.
+- `PATCH /api/v1/notifications/{notificationId}/read` — mark one notification as read.
+- `PATCH /api/v1/notifications/read-all` — mark all of their notifications as read.
+
+The backend creates notifications when a Developer is assigned a task or ticket, when a Developer submits work for Senior Manager review, when a Senior Manager forwards work to the Product Manager, when a Senior Manager requests changes, when a Product Manager accepts a submission, and when a ticket is assigned to a Senior Manager. Every notification endpoint uses the signed-in user's identity; users cannot read or change another user's notifications. Notification delivery is stored for later retrieval; clients can refresh the unread count or notification list when opening the app.
+
 ## Local setup
 
 1. Start MongoDB locally or set `MONGODB_URI`.

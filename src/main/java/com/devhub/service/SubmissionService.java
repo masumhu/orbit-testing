@@ -28,9 +28,12 @@ public class SubmissionService {
     private final ProjectService projects;
     private final TaskService tasks;
     private final TicketService tickets;
+    private final UserNotificationService notifications;
 
-    public SubmissionService(CodeSubmissionRepository submissions, ProjectService projects, TaskService tasks, TicketService tickets) {
+    public SubmissionService(CodeSubmissionRepository submissions, ProjectService projects, TaskService tasks,
+                             TicketService tickets, UserNotificationService notifications) {
         this.submissions = submissions; this.projects = projects; this.tasks = tasks; this.tickets = tickets;
+        this.notifications = notifications;
     }
 
     public CodeSubmission submit(String userId, String taskId, SubmissionRequests.CreateSubmissionRequest request) {
@@ -50,6 +53,8 @@ public class SubmissionService {
                 clean(request.repositoryUrl()), clean(request.branch()), clean(request.commitSha()), clean(request.pullRequestUrl()),
                 clean(request.storageReference()), null, SubmissionStatus.SUBMITTED, now, now));
         if (task.status() != TaskStatus.SUBMITTED) tasks.markSubmitted(task);
+        notifications.notifyUser(task.createdBySeniorManagerId(), task.organizationId(), "SUBMISSION_REVIEW",
+                "Work submitted for review", developer.username() + " submitted work for: " + task.title(), "SUBMISSION", saved.id());
         return saved;
     }
 
@@ -76,7 +81,11 @@ public class SubmissionService {
         projects.requireView(senior, projects.find(submission.projectId()));
         if (!task.createdBySeniorManagerId().equals(senior.id())) throw new IllegalArgumentException("Only the task's Senior Manager can forward this submission");
         if (submission.status() != SubmissionStatus.SUBMITTED) throw new IllegalArgumentException("Only a new submission can be forwarded");
-        return update(submission, SubmissionStatus.FORWARDED_TO_PRODUCT_MANAGER, clean(submission.reviewNote()));
+        CodeSubmission forwarded = update(submission, SubmissionStatus.FORWARDED_TO_PRODUCT_MANAGER, clean(submission.reviewNote()));
+        Project project = projects.find(submission.projectId());
+        notifications.notifyUser(project.productManagerId(), project.organizationId(), "SUBMISSION_REVIEW",
+                "Work ready for your review", "A Senior Manager forwarded work for review.", "SUBMISSION", submission.id());
+        return forwarded;
     }
 
     public CodeSubmission requestChanges(String userId, String submissionId, SubmissionRequests.RequestChangesRequest request) {
@@ -95,7 +104,10 @@ public class SubmissionService {
             throw new IllegalStateException("Submission developer is no longer assigned to this task");
         }
         tasks.requestChanges(task);
-        return update(submission, SubmissionStatus.CHANGES_REQUESTED_BY_SENIOR_MANAGER, request.note().trim());
+        CodeSubmission returned = update(submission, SubmissionStatus.CHANGES_REQUESTED_BY_SENIOR_MANAGER, request.note().trim());
+        notifications.notifyUser(submission.developerId(), submission.organizationId(), "SUBMISSION_CHANGES",
+                "Changes requested", request.note().trim(), "SUBMISSION", submission.id());
+        return returned;
     }
 
     public CodeSubmission review(String userId, String submissionId, SubmissionRequests.ReviewSubmissionRequest request) {
@@ -107,7 +119,10 @@ public class SubmissionService {
         Task task = tasks.find(submission.taskId());
         if (request.decision() == SubmissionRequests.ReviewDecision.ACCEPT) {
             tasks.markCompleted(task);
-            return update(submission, SubmissionStatus.ACCEPTED, clean(request.note()));
+            CodeSubmission accepted = update(submission, SubmissionStatus.ACCEPTED, clean(request.note()));
+            notifications.notifyUser(submission.developerId(), submission.organizationId(), "SUBMISSION_ACCEPTED",
+                    "Your work was accepted", "The Product Manager accepted your submission for: " + task.title(), "SUBMISSION", submission.id());
+            return accepted;
         }
         if (blank(request.ticketTitle()) || blank(request.ticketDescription()) || request.priority() == null || blank(request.codeLocation())) {
             throw new IllegalArgumentException("A change request requires ticket title, description, priority, and code location");

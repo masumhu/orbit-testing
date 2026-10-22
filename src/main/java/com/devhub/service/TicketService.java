@@ -26,9 +26,12 @@ public class TicketService {
     private final ProjectService projects;
     private final TaskService tasks;
     private final CodeSubmissionRepository submissions;
+    private final UserNotificationService notifications;
 
-    public TicketService(TicketRepository tickets, ProjectService projects, TaskService tasks, CodeSubmissionRepository submissions) {
+    public TicketService(TicketRepository tickets, ProjectService projects, TaskService tasks,
+                         CodeSubmissionRepository submissions, UserNotificationService notifications) {
         this.tickets = tickets; this.projects = projects; this.tasks = tasks; this.submissions = submissions;
+        this.notifications = notifications;
     }
 
     public Ticket create(String userId, String projectId, TicketRequests.CreateTicketRequest request) {
@@ -37,9 +40,12 @@ public class TicketService {
         projects.requireView(pm, project);
         UserAccount senior = validateSenior(project, request.seniorManagerId());
         Instant now = Instant.now();
-        return tickets.save(new Ticket(null, project.organizationId(), project.id(), null, request.title().trim(), request.description().trim(),
+        Ticket created = tickets.save(new Ticket(null, project.organizationId(), project.id(), null, request.title().trim(), request.description().trim(),
                 request.priority(), TicketStatus.OPEN, request.codeLocation().trim(), pm.id(), senior.id(), null,
                 List.of(new TicketChange("created", null, TicketStatus.OPEN.name(), pm.id(), now)), now, now));
+        notifications.notifyUser(senior.id(), project.organizationId(), "TICKET_ASSIGNED", "New ticket assigned",
+                "A ticket was assigned to you: " + created.title(), "TICKET", created.id());
+        return created;
     }
 
     public List<Ticket> listProject(String userId, String projectId) {
@@ -100,9 +106,14 @@ public class TicketService {
             changes.add(new TicketChange("status", ticket.status().name(), TicketStatus.IN_PROCESS.name(), senior.id(), now));
             nextStatus = TicketStatus.IN_PROCESS;
         }
-        return tickets.save(new Ticket(ticket.id(), ticket.organizationId(), ticket.projectId(), ticket.submissionId(), ticket.title(),
+        Ticket assigned = tickets.save(new Ticket(ticket.id(), ticket.organizationId(), ticket.projectId(), ticket.submissionId(), ticket.title(),
                 ticket.description(), ticket.priority(), nextStatus, ticket.codeLocation(), ticket.createdByProductManagerId(),
                 ticket.assignedSeniorManagerId(), developer.id(), List.copyOf(changes), ticket.createdAt(), now));
+        if (!developer.id().equals(ticket.assignedDeveloperId())) {
+            notifications.notifyUser(developer.id(), ticket.organizationId(), "TICKET_ASSIGNED", "Ticket assigned to you",
+                    "You were assigned the ticket: " + ticket.title(), "TICKET", ticket.id());
+        }
+        return assigned;
     }
 
     public Ticket createFromSubmission(String productManagerId, Project project, String submissionId,
@@ -111,9 +122,12 @@ public class TicketService {
         projects.requireView(pm, project);
         UserAccount senior = validateSenior(project, seniorManagerId);
         Instant now = Instant.now();
-        return tickets.save(new Ticket(null, project.organizationId(), project.id(), submissionId, title.trim(), description.trim(),
+        Ticket created = tickets.save(new Ticket(null, project.organizationId(), project.id(), submissionId, title.trim(), description.trim(),
                 priority, TicketStatus.OPEN, codeLocation, pm.id(), senior.id(), null,
                 List.of(new TicketChange("created", null, TicketStatus.OPEN.name(), pm.id(), now)), now, now));
+        notifications.notifyUser(senior.id(), project.organizationId(), "TICKET_ASSIGNED", "New ticket assigned",
+                "A ticket was created from a reviewed submission and assigned to you: " + created.title(), "TICKET", created.id());
+        return created;
     }
 
     public Ticket find(String id) { return tickets.findById(id).orElseThrow(() -> new NoSuchElementException("Ticket was not found")); }
