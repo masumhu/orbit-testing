@@ -60,7 +60,9 @@ public class SubmissionService {
         List<CodeSubmission> values = submissions.findByProjectId(projectId);
         if (user.role() == RegistrationRole.OWNER) return values;
         if (user.role() == RegistrationRole.PRODUCT_MANAGER) return values.stream()
-                .filter(s -> s.status() != SubmissionStatus.SUBMITTED).toList();
+                .filter(s -> s.status() == SubmissionStatus.FORWARDED_TO_PRODUCT_MANAGER
+                        || s.status() == SubmissionStatus.ACCEPTED
+                        || s.status() == SubmissionStatus.CHANGES_REQUESTED).toList();
         if (user.role() == RegistrationRole.SENIOR_MANAGER) return values;
         List<String> ticketSubmissionIds = tickets.listProject(userId, projectId).stream()
                 .map(com.devhub.ticket.Ticket::submissionId).filter(java.util.Objects::nonNull).toList();
@@ -75,6 +77,25 @@ public class SubmissionService {
         if (!task.createdBySeniorManagerId().equals(senior.id())) throw new IllegalArgumentException("Only the task's Senior Manager can forward this submission");
         if (submission.status() != SubmissionStatus.SUBMITTED) throw new IllegalArgumentException("Only a new submission can be forwarded");
         return update(submission, SubmissionStatus.FORWARDED_TO_PRODUCT_MANAGER, clean(submission.reviewNote()));
+    }
+
+    public CodeSubmission requestChanges(String userId, String submissionId, SubmissionRequests.RequestChangesRequest request) {
+        UserAccount senior = projects.requireRole(userId, RegistrationRole.SENIOR_MANAGER);
+        CodeSubmission submission = find(submissionId);
+        Task task = tasks.find(submission.taskId());
+        Project project = projects.find(submission.projectId());
+        projects.requireView(senior, project);
+        if (!task.createdBySeniorManagerId().equals(senior.id())) {
+            throw new IllegalArgumentException("Only the task's Senior Manager can request changes");
+        }
+        if (submission.status() != SubmissionStatus.SUBMITTED) {
+            throw new IllegalArgumentException("Only a new submission can be returned for changes");
+        }
+        if (!submission.developerId().equals(task.assignedDeveloperId())) {
+            throw new IllegalStateException("Submission developer is no longer assigned to this task");
+        }
+        tasks.requestChanges(task);
+        return update(submission, SubmissionStatus.CHANGES_REQUESTED_BY_SENIOR_MANAGER, request.note().trim());
     }
 
     public CodeSubmission review(String userId, String submissionId, SubmissionRequests.ReviewSubmissionRequest request) {

@@ -44,7 +44,8 @@ Access tokens are 15-minute JWTs. Refresh tokens are stored only as SHA-256 hash
 - A Product Manager creates projects and assigns Senior Managers: `POST /api/v1/projects`.
 - A Senior Manager creates tasks in an assigned project, then assigns each task to a Developer.
 - Developers submit a branch/commit, pull request, or external storage reference with `POST /api/v1/tasks/{taskId}/submissions`.
-- Senior Managers review and forward submissions. Product Managers accept a forwarded submission or request changes; requesting changes creates a ticket for the task's Senior Manager.
+- Senior Managers review submissions. They can forward a submission to the Product Manager with `POST /api/v1/submissions/{submissionId}/forward`, or return it to its Developer for changes with `POST /api/v1/submissions/{submissionId}/request-changes` and a required note. Returning it reopens the task as `IN_PROGRESS`, allowing the assigned Developer to submit updated work.
+- Product Managers accept a forwarded submission or request changes. A Product Manager change request creates a ticket for the task's Senior Manager; the Senior Manager reviews the ticket, assigns a Developer, and tracks its status.
 - Product Managers can also create tickets directly. Tickets contain title, description, priority (`LOW`, `MEDIUM`, `HIGH`), status (`OPEN`, `IN_PROCESS`, `CLOSED`), and code location. The Product Manager sets priority; the assigned Senior Manager updates status and assigns the ticket to a Developer. Ticket changes are recorded in history.
 - Developers and Senior Managers can leave a project after their active tasks and tickets are reassigned or closed. Leaving removes project access, including channel access.
 - Organization members can leave with `POST /api/v1/organizations/{organizationId}/leave`; the owner must transfer ownership first. Project members can leave with `POST /api/v1/projects/{projectId}/leave` after closing or reassigning active work.

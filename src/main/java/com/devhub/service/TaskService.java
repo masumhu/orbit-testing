@@ -85,6 +85,11 @@ public class TaskService {
         return tasks.save(new Task(task.id(), task.organizationId(), task.projectId(), task.title(), task.description(),
                 task.createdBySeniorManagerId(), task.assignedDeveloperId(), TaskStatus.SUBMITTED, task.createdAt(), Instant.now()));
     }
+    public Task requestChanges(Task task) {
+        if (task.status() != TaskStatus.SUBMITTED) throw new IllegalArgumentException("Only a submitted task can be returned for changes");
+        return tasks.save(new Task(task.id(), task.organizationId(), task.projectId(), task.title(), task.description(),
+                task.createdBySeniorManagerId(), task.assignedDeveloperId(), TaskStatus.IN_PROGRESS, task.createdAt(), Instant.now()));
+    }
     public Task get(String userId, String taskId) {
         Task task = find(taskId);
         UserAccount user = projects.user(userId);

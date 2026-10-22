@@ -29,6 +29,11 @@ public class SubmissionController {
     @PostMapping("/api/v1/submissions/{submissionId}/forward")
     public CodeSubmission forward(@AuthenticationPrincipal Jwt jwt, @PathVariable String submissionId) {
         return submissions.forward(jwt.getSubject(), submissionId); }
+    @PostMapping("/api/v1/submissions/{submissionId}/request-changes")
+    public CodeSubmission requestChanges(@AuthenticationPrincipal Jwt jwt, @PathVariable String submissionId,
+                                         @RequestBody @Valid SubmissionRequests.RequestChangesRequest request) {
+        return submissions.requestChanges(jwt.getSubject(), submissionId, request);
+    }
     @PostMapping("/api/v1/submissions/{submissionId}/review")
     public CodeSubmission review(@AuthenticationPrincipal Jwt jwt, @PathVariable String submissionId,
                                  @RequestBody @Valid SubmissionRequests.ReviewSubmissionRequest request) {
