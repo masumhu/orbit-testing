@@ -1,5 +1,7 @@
 package com.devhub.chat;
 
+import com.devhub.service.ChatService;
+
 import org.springframework.messaging.Message;
 import org.springframework.messaging.MessageChannel;
 import org.springframework.messaging.simp.stomp.StompCommand;

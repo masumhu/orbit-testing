@@ -25,7 +25,9 @@ Codes must be at least eight characters and are stored as BCrypt hashes. The own
 
 ## Registration and login
 
-Request a verification code with `POST /api/v1/auth/registrations/email/request-otp` or `POST /api/v1/auth/registrations/{google|github}/request-otp`, then verify it with `POST /api/v1/auth/registrations/verify-otp`. Every registration requires email OTP verification. Google tokens are validated against `GOOGLE_OAUTH_CLIENT_ID`. GitHub registration/login uses an OAuth access token with `read:user` and `user:email` scopes.
+Request a verification code with `POST /api/v1/auth/registrations/email/request-otp`, `POST /api/v1/auth/registrations/google/request-otp`, or `POST /api/v1/auth/registrations/github/callback`, then verify it with `POST /api/v1/auth/registrations/verify-otp`. Every registration requires email OTP verification. Google tokens are validated against `GOOGLE_OAUTH_CLIENT_ID`. GitHub registration uses the OAuth authorization-code flow and exchanges the code on the backend; the direct `/github/request-otp` route remains available to native clients that already hold a GitHub access token. Request `read:user` and `user:email` scopes.
+
+For GitHub registration, send the user to GitHub's OAuth authorization page with the configured client ID, the exact `GITHUB_OAUTH_REDIRECT_URI`, scopes `read:user user:email`, and a random `state` value. Validate `state` in the frontend callback, then post the returned temporary `code` and the organization fields to `POST /api/v1/auth/registrations/github/callback`. For example: `{"code":"<github-code>","organizationMode":"CREATE","organizationName":"My Organization"}`. For `JOIN`, send `organizationMode`, `organizationId`, `role`, `companyAccessCode`, and `code` instead. The endpoint exchanges the code using the server-side client secret and emails the registration OTP. Never send the GitHub client secret to the frontend.
 
 Login and session endpoints:
 
