@@ -38,6 +38,18 @@ public class OrganizationController {
         return organizations.members(organizationId, jwt.getSubject());
     }
 
+    @GetMapping("/{organizationId}/developers")
+    public java.util.List<OrganizationRequests.MemberResponse> developers(@PathVariable String organizationId,
+                                                                           @AuthenticationPrincipal Jwt jwt) {
+        return organizations.developers(organizationId, jwt.getSubject());
+    }
+
+    @GetMapping("/{organizationId}/senior-managers")
+    public java.util.List<OrganizationRequests.MemberResponse> seniorManagers(@PathVariable String organizationId,
+                                                                               @AuthenticationPrincipal Jwt jwt) {
+        return organizations.seniorManagers(organizationId, jwt.getSubject());
+    }
+
     @PutMapping("/{organizationId}/access-codes")
     @ResponseStatus(HttpStatus.OK)
     public OrganizationResponse updateAccessCodes(@PathVariable String organizationId,

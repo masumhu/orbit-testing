@@ -38,7 +38,7 @@ public class TaskService {
         if (!project.seniorManagerIds().contains(senior.id())) throw new IllegalArgumentException("You are not assigned to this project");
         Instant now = Instant.now();
         return tasks.save(new Task(null, project.organizationId(), project.id(), request.title().trim(), clean(request.description()),
-                senior.id(), null, TaskStatus.TODO, now, now));
+                senior.id(), null, TaskStatus.TODO, now, now, request.deadline()));
     }
 
     public List<Task> list(String userId, String projectId) {
@@ -66,9 +66,9 @@ public class TaskService {
         List<String> developerIds = new java.util.ArrayList<>(project.developerIds());
         if (!developerIds.contains(developer.id())) developerIds.add(developer.id());
         projectRepository.save(new Project(project.id(), project.organizationId(), project.name(), project.description(),
-                project.productManagerId(), project.seniorManagerIds(), List.copyOf(developerIds), project.status(), project.createdAt(), Instant.now()));
+                project.productManagerId(), project.seniorManagerIds(), List.copyOf(developerIds), project.status(), project.createdAt(), Instant.now(), project.deadline()));
         Task assigned = tasks.save(new Task(task.id(), task.organizationId(), task.projectId(), task.title(), task.description(),
-                task.createdBySeniorManagerId(), developer.id(), task.status(), task.createdAt(), Instant.now()));
+                task.createdBySeniorManagerId(), developer.id(), task.status(), task.createdAt(), Instant.now(), task.deadline()));
         if (!developer.id().equals(task.assignedDeveloperId())) {
             notifications.notifyUser(developer.id(), task.organizationId(), "TASK_ASSIGNED", "New task assigned",
                     "You were assigned the task: " + task.title(), "TASK", task.id());
@@ -86,17 +86,17 @@ public class TaskService {
             throw new IllegalArgumentException("Developers can set task status to IN_PROGRESS or CANCELLED; submit work to mark it SUBMITTED");
         }
         return tasks.save(new Task(task.id(), task.organizationId(), task.projectId(), task.title(), task.description(),
-                task.createdBySeniorManagerId(), task.assignedDeveloperId(), request.status(), task.createdAt(), Instant.now()));
+                task.createdBySeniorManagerId(), task.assignedDeveloperId(), request.status(), task.createdAt(), Instant.now(), task.deadline()));
     }
 
     public Task markSubmitted(Task task) {
         return tasks.save(new Task(task.id(), task.organizationId(), task.projectId(), task.title(), task.description(),
-                task.createdBySeniorManagerId(), task.assignedDeveloperId(), TaskStatus.SUBMITTED, task.createdAt(), Instant.now()));
+                task.createdBySeniorManagerId(), task.assignedDeveloperId(), TaskStatus.SUBMITTED, task.createdAt(), Instant.now(), task.deadline()));
     }
     public Task requestChanges(Task task) {
         if (task.status() != TaskStatus.SUBMITTED) throw new IllegalArgumentException("Only a submitted task can be returned for changes");
         return tasks.save(new Task(task.id(), task.organizationId(), task.projectId(), task.title(), task.description(),
-                task.createdBySeniorManagerId(), task.assignedDeveloperId(), TaskStatus.IN_PROGRESS, task.createdAt(), Instant.now()));
+                task.createdBySeniorManagerId(), task.assignedDeveloperId(), TaskStatus.IN_PROGRESS, task.createdAt(), Instant.now(), task.deadline()));
     }
     public Task get(String userId, String taskId) {
         Task task = find(taskId);
@@ -110,7 +110,7 @@ public class TaskService {
     }
     public Task markCompleted(Task task) {
         return tasks.save(new Task(task.id(), task.organizationId(), task.projectId(), task.title(), task.description(),
-                task.createdBySeniorManagerId(), task.assignedDeveloperId(), TaskStatus.COMPLETED, task.createdAt(), Instant.now()));
+                task.createdBySeniorManagerId(), task.assignedDeveloperId(), TaskStatus.COMPLETED, task.createdAt(), Instant.now(), task.deadline()));
     }
     public Task assignForRework(Task task, String developerId) {
         if (task.status() == TaskStatus.COMPLETED || task.status() == TaskStatus.CANCELLED) throw new IllegalArgumentException("Completed or cancelled tasks cannot be reopened");
@@ -119,16 +119,16 @@ public class TaskService {
         developerIds.addAll(project.developerIds());
         if (!developerIds.contains(developerId)) developerIds.add(developerId);
         projectRepository.save(new Project(project.id(), project.organizationId(), project.name(), project.description(),
-                project.productManagerId(), project.seniorManagerIds(), List.copyOf(developerIds), project.status(), project.createdAt(), Instant.now()));
+                project.productManagerId(), project.seniorManagerIds(), List.copyOf(developerIds), project.status(), project.createdAt(), Instant.now(), project.deadline()));
         return tasks.save(new Task(task.id(), task.organizationId(), task.projectId(), task.title(), task.description(),
-                task.createdBySeniorManagerId(), developerId, TaskStatus.IN_PROGRESS, task.createdAt(), Instant.now()));
+                task.createdBySeniorManagerId(), developerId, TaskStatus.IN_PROGRESS, task.createdAt(), Instant.now(), task.deadline()));
     }
     public void addDeveloperToProject(Project project, String developerId) {
         if (project.developerIds().contains(developerId)) return;
         List<String> developerIds = new java.util.ArrayList<>(project.developerIds());
         developerIds.add(developerId);
         projectRepository.save(new Project(project.id(), project.organizationId(), project.name(), project.description(),
-                project.productManagerId(), project.seniorManagerIds(), List.copyOf(developerIds), project.status(), project.createdAt(), Instant.now()));
+                project.productManagerId(), project.seniorManagerIds(), List.copyOf(developerIds), project.status(), project.createdAt(), Instant.now(), project.deadline()));
     }
     public Task find(String id) { return tasks.findById(id).orElseThrow(() -> new NoSuchElementException("Task was not found")); }
     private String clean(String value) { return value == null ? "" : value.trim(); }

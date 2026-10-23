@@ -38,18 +38,22 @@ public class ProjectService {
         List<String> seniors = validateSeniorIds(pm.organizationId(), request.seniorManagerIds());
         Instant now = Instant.now();
         return projects.save(new Project(null, pm.organizationId(), request.name().trim(), clean(request.description()),
-                pm.id(), seniors, List.of(), ProjectStatus.ACTIVE, now, now));
+                pm.id(), seniors, List.of(), ProjectStatus.ACTIVE, now, now, request.deadline()));
     }
 
     public List<Project> list(String userId) {
         UserAccount user = user(userId);
-        return switch (user.role()) {
+        List<Project> visible = switch (user.role()) {
             case OWNER -> projects.findByOrganizationId(user.organizationId());
             case PRODUCT_MANAGER -> projects.findByOrganizationIdAndProductManagerId(user.organizationId(), user.id());
             case SENIOR_MANAGER -> projects.findByOrganizationIdAndSeniorManagerIdsContaining(user.organizationId(), user.id());
             case DEVELOPER -> projects.findByOrganizationId(user.organizationId()).stream()
                     .filter(project -> project.developerIds().contains(user.id())).toList();
         };
+        return visible.stream().sorted(java.util.Comparator
+                .comparing(Project::deadline, java.util.Comparator.nullsLast(java.util.Comparator.naturalOrder()))
+                .thenComparing(Project::createdAt, java.util.Comparator.nullsLast(java.util.Comparator.naturalOrder())))
+                .toList();
     }
 
     public Project get(String userId, String projectId) {
@@ -66,7 +70,8 @@ public class ProjectService {
         }
         List<String> seniors = validateSeniorIds(project.organizationId(), request.seniorManagerIds());
         Project updated = new Project(project.id(), project.organizationId(), request.name().trim(), clean(request.description()),
-                project.productManagerId(), seniors, project.developerIds(), request.status() == null ? project.status() : request.status(), project.createdAt(), Instant.now());
+                project.productManagerId(), seniors, project.developerIds(), request.status() == null ? project.status() : request.status(),
+                project.createdAt(), Instant.now(), request.deadline() == null ? project.deadline() : request.deadline());
         return projects.save(updated);
     }
 
@@ -87,11 +92,11 @@ public class ProjectService {
         if (user.role() == RegistrationRole.DEVELOPER) {
             List<String> developerIds = project.developerIds().stream().filter(id -> !id.equals(user.id())).toList();
             projects.save(new Project(project.id(), project.organizationId(), project.name(), project.description(), project.productManagerId(),
-                    project.seniorManagerIds(), developerIds, project.status(), project.createdAt(), Instant.now()));
+                    project.seniorManagerIds(), developerIds, project.status(), project.createdAt(), Instant.now(), project.deadline()));
         } else {
             List<String> seniorIds = project.seniorManagerIds().stream().filter(id -> !id.equals(user.id())).toList();
             projects.save(new Project(project.id(), project.organizationId(), project.name(), project.description(), project.productManagerId(),
-                    seniorIds, project.developerIds(), project.status(), project.createdAt(), Instant.now()));
+                    seniorIds, project.developerIds(), project.status(), project.createdAt(), Instant.now(), project.deadline()));
         }
     }
 

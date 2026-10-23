@@ -47,10 +47,33 @@ public class OrganizationService {
     public java.util.List<OrganizationRequests.MemberResponse> members(String organizationId, String userId) {
         Organization organization = find(organizationId);
         requireMember(organization, userId);
-        UserAccount requester = users.findById(userId).orElseThrow(() -> new NoSuchElementException("User was not found"));
-        if (requester.role() == RegistrationRole.DEVELOPER) throw new IllegalArgumentException("Only the owner, Product Managers, and Senior Managers can view the organization roster");
+        requireRosterViewer(userId);
         return users.findByOrganizationId(organizationId).stream()
                 .map(user -> new OrganizationRequests.MemberResponse(user.id(), user.username(), user.email(), user.role())).toList();
+    }
+
+    public java.util.List<OrganizationRequests.MemberResponse> developers(String organizationId, String userId) {
+        return membersByRole(organizationId, userId, RegistrationRole.DEVELOPER);
+    }
+
+    public java.util.List<OrganizationRequests.MemberResponse> seniorManagers(String organizationId, String userId) {
+        return membersByRole(organizationId, userId, RegistrationRole.SENIOR_MANAGER);
+    }
+
+    private java.util.List<OrganizationRequests.MemberResponse> membersByRole(String organizationId, String userId, RegistrationRole role) {
+        Organization organization = find(organizationId);
+        requireMember(organization, userId);
+        requireRosterViewer(userId);
+        return users.findByOrganizationId(organizationId).stream()
+                .filter(user -> user.role() == role)
+                .map(user -> new OrganizationRequests.MemberResponse(user.id(), user.username(), user.email(), user.role())).toList();
+    }
+
+    private void requireRosterViewer(String userId) {
+        UserAccount requester = users.findById(userId).orElseThrow(() -> new NoSuchElementException("User was not found"));
+        if (requester.role() == RegistrationRole.DEVELOPER) {
+            throw new IllegalArgumentException("Only the owner, Product Managers, and Senior Managers can view the organization roster");
+        }
     }
 
     public void leave(String organizationId, String userId) {

@@ -23,6 +23,11 @@ After creating the organization, the owner signs in and sets three distinct role
 
 Codes must be at least eight characters and are stored as BCrypt hashes. The owner can view the organization roster, projects, tasks, tickets, and submission metadata, and can change role codes. Owners cannot access chat or perform other write actions. The owner must transfer ownership before leaving; ownership transfer is not implemented yet.
 
+Organization role lists are available to the owner, Product Manager, and Senior Managers:
+
+- `GET /api/v1/organizations/{organizationId}/developers` — list Developers.
+- `GET /api/v1/organizations/{organizationId}/senior-managers` — list Senior Managers.
+
 ## Registration and login
 
 Request a verification code with `POST /api/v1/auth/registrations/email/request-otp`, `POST /api/v1/auth/registrations/google/request-otp`, or `POST /api/v1/auth/registrations/github/callback`, then verify it with `POST /api/v1/auth/registrations/verify-otp`. Every registration requires email OTP verification. Google tokens are validated against `GOOGLE_OAUTH_CLIENT_ID`. GitHub registration uses the OAuth authorization-code flow and exchanges the code on the backend; the direct `/github/request-otp` route remains available to native clients that already hold a GitHub access token. Request `read:user` and `user:email` scopes.
@@ -41,8 +46,8 @@ Access tokens are 15-minute JWTs. Refresh tokens are stored only as SHA-256 hash
 
 ## Projects, tasks, submissions, and tickets
 
-- A Product Manager creates projects and assigns Senior Managers: `POST /api/v1/projects`.
-- A Senior Manager creates tasks in an assigned project, then assigns each task to a Developer.
+- A Product Manager creates projects and assigns Senior Managers: `POST /api/v1/projects`. `deadline` is an optional date in `YYYY-MM-DD` format; `GET /api/v1/projects` sorts projects by deadline ascending, with projects without a deadline last.
+- A Senior Manager creates tasks in an assigned project, then assigns each task to a Developer. `POST /api/v1/projects/{projectId}/tasks` accepts an optional `deadline` in `YYYY-MM-DD` format.
 - Developers submit a branch/commit, pull request, or external storage reference with `POST /api/v1/tasks/{taskId}/submissions`.
 - Senior Managers review submissions. They can forward a submission to the Product Manager with `POST /api/v1/submissions/{submissionId}/forward`, or return it to its Developer for changes with `POST /api/v1/submissions/{submissionId}/request-changes` and a required note. Returning it reopens the task as `IN_PROGRESS`, allowing the assigned Developer to submit updated work.
 - Product Managers accept a forwarded submission or request changes. A Product Manager change request creates a ticket for the task's Senior Manager; the Senior Manager reviews the ticket, assigns a Developer, and tracks its status.
