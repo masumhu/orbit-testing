@@ -75,9 +75,13 @@ public class RegistrationService {
         return new OtpIssuedResponse(challenge.id(), challenge.expiresAt());
     }
 
-    public OtpIssuedResponse requestSocialOtp(RegistrationMethod method, SocialOtpRequest request) {
-        RegistrationContext context = resolveContext(request.organizationMode(), request.organizationName(),
-                request.organizationId(), request.role(), request.companyAccessCode());
+    public OtpIssuedResponse requestSocialOtp(RegistrationMethod method,
+                                              SocialOtpRequest request) {
+        RegistrationContext context = resolveContext(request.organizationMode(),
+                request.organizationName(),
+                request.organizationId(),
+                request.role(),
+                request.companyAccessCode());
         ProviderIdentity identity = identityVerifier.verify(method, request.providerToken());
         return createSocialChallenge(method, context, identity);
     }
@@ -87,6 +91,13 @@ public class RegistrationService {
                 request.organizationId(), request.role(), request.companyAccessCode());
         ProviderIdentity identity = identityVerifier.verifyGitHubAuthorizationCode(request.code());
         return createSocialChallenge(RegistrationMethod.GITHUB, context, identity);
+    }
+
+    public OtpIssuedResponse requestGoogleOtp(RegistrationRequests.GoogleCodeRegistrationRequest request) {
+        RegistrationContext context = resolveContext(request.organizationMode(), request.organizationName(),
+                request.organizationId(), request.role(), request.companyAccessCode());
+        ProviderIdentity identity = identityVerifier.verifyGoogleAuthorizationCode(request.code());
+        return createSocialChallenge(RegistrationMethod.GOOGLE, context, identity);
     }
 
     private OtpIssuedResponse createSocialChallenge(RegistrationMethod method, RegistrationContext context,

@@ -62,6 +62,18 @@ public class LoginService {
         return tokenService.issue(user);
     }
 
+    public AuthTokenResponse loginWithGoogleCode(String code) {
+        ProviderIdentity identity;
+        try {
+            identity = identityVerifier.verifyGoogleAuthorizationCode(code);
+        } catch (IllegalArgumentException ex) {
+            throw new AuthException();
+        }
+        UserAccount user = users.findByRegistrationMethodAndProviderSubject(RegistrationMethod.GOOGLE, identity.subject())
+                .orElseThrow(AuthException::new);
+        return tokenService.issue(user);
+    }
+
     public AuthTokenResponse refresh(String refreshToken) { return tokenService.refresh(refreshToken); }
     public void logout(String refreshToken) { tokenService.revoke(refreshToken); }
 }

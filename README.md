@@ -30,14 +30,17 @@ Organization role lists are available to the owner, Product Manager, and Senior 
 
 ## Registration and login
 
-Request a verification code with `POST /api/v1/auth/registrations/email/request-otp`, `POST /api/v1/auth/registrations/google/request-otp`, or `POST /api/v1/auth/registrations/github/callback`, then verify it with `POST /api/v1/auth/registrations/verify-otp`. Every registration requires email OTP verification. Google tokens are validated against `GOOGLE_OAUTH_CLIENT_ID`. GitHub registration uses the OAuth authorization-code flow and exchanges the code on the backend; the direct `/github/request-otp` route remains available to native clients that already hold a GitHub access token. Request `read:user` and `user:email` scopes.
+Request a verification code with `POST /api/v1/auth/registrations/email/request-otp`, `POST /api/v1/auth/registrations/google/request-otp`, `POST /api/v1/auth/registrations/google/callback`, or `POST /api/v1/auth/registrations/github/callback`, then verify it with `POST /api/v1/auth/registrations/verify-otp`. Every registration requires email OTP verification. Google ID tokens are validated against `GOOGLE_OAUTH_CLIENT_ID`; browser websites can instead send the temporary authorization code to the Google callback so the backend exchanges it using the client secret. The direct Google request-OTP route remains available to native clients that already hold an ID token. GitHub registration uses the OAuth authorization-code flow and exchanges the code on the backend; the direct `/github/request-otp` route remains available to native clients that already hold a GitHub access token. Request `read:user` and `user:email` scopes.
 
 For GitHub registration, send the user to GitHub's OAuth authorization page with the configured client ID, the exact `GITHUB_OAUTH_REDIRECT_URI`, scopes `read:user user:email`, and a random `state` value. Validate `state` in the frontend callback, then post the returned temporary `code` and the organization fields to `POST /api/v1/auth/registrations/github/callback`. For example: `{"code":"<github-code>","organizationMode":"CREATE","organizationName":"My Organization"}`. For `JOIN`, send `organizationMode`, `organizationId`, `role`, `companyAccessCode`, and `code` instead. The endpoint exchanges the code using the server-side client secret and emails the registration OTP. Never send the GitHub client secret to the frontend.
+
+For Google website registration, send the user to Google's OAuth authorization endpoint using the configured client ID, exact `GOOGLE_OAUTH_REDIRECT_URI`, scopes `openid email profile`, response type `code`, and a random `state`. Validate the returned state in the website before posting the temporary `code` and organization fields to `POST /api/v1/auth/registrations/google/callback`. For `CREATE`, include `organizationMode` and `organizationName`; for `JOIN`, include `organizationMode`, `organizationId`, `role`, and `companyAccessCode`. Never put the Google client secret in website code.
 
 Login and session endpoints:
 
 - `POST /api/v1/auth/login` — email or username and password.
 - `POST /api/v1/auth/login/{google|github}` — provider token (the GitHub token path is useful for native clients).
+- `POST /api/v1/auth/login/google/callback` — exchanges a Google authorization code for Orbit access and refresh tokens. The website must use the configured callback URL and validate OAuth `state` before posting `{"code":"..."}`.
 - `POST /api/v1/auth/login/github/callback` — exchange a GitHub OAuth authorization code for Orbit access and refresh tokens. The frontend must start GitHub OAuth with the configured callback URL, validate the returned `state`, then post `{"code":"..."}` to this endpoint. Existing users must have registered through the same GitHub identity.
 - `POST /api/v1/auth/refresh` — rotates a 30-day opaque refresh token.
 - `POST /api/v1/auth/logout` — revokes a refresh-token session.
@@ -78,8 +81,8 @@ The backend creates notifications when a Developer is assigned a task or ticket,
 
 1. Start MongoDB locally or set `MONGODB_URI`.
 2. Configure SMTP, `OTP_HMAC_SECRET`, and `JWT_SECRET` in environment variables or a local `.env` file. Both secrets must be at least 32 characters.
-3. Set `GOOGLE_OAUTH_CLIENT_ID` for Google auth. For GitHub, set `GITHUB_OAUTH_CLIENT_ID`, `GITHUB_OAUTH_CLIENT_SECRET`, and `GITHUB_OAUTH_REDIRECT_URI` to the exact callback URL configured in your GitHub OAuth App. Request `read:user` and `user:email`; keep the client secret on the backend. The frontend should generate and verify an unpredictable OAuth `state` value.
-4. Set `DEVHUB_WEBSOCKET_ALLOWED_ORIGIN_PATTERNS` to the client origins.
+3. Set `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET`, and `GOOGLE_OAUTH_REDIRECT_URI` to the credentials and exact callback URL configured in your Google OAuth Web application. Add the website's host under Authorized JavaScript origins in Google Cloud Console. Keep the client secret only on the backend. For GitHub, set `GITHUB_OAUTH_CLIENT_ID`, `GITHUB_OAUTH_CLIENT_SECRET`, and `GITHUB_OAUTH_REDIRECT_URI` to the exact callback URL configured in your GitHub OAuth App. Request `read:user` and `user:email`; keep the client secret on the backend. The website should generate and verify an unpredictable OAuth `state` value.
+4. Set `DEVHUB_CORS_ALLOWED_ORIGINS` to the comma-separated website origins (scheme and host, no path), and `DEVHUB_WEBSOCKET_ALLOWED_ORIGIN_PATTERNS` to the WebSocket client origins.
 5. Run `mvn spring-boot:run`.
 
 Swagger UI is available at `/swagger-ui.html`; health is available at `/actuator/health`.

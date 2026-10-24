@@ -40,6 +40,11 @@ public class LoginController {
         return loginService.loginWithGitHubCode(request.code());
     }
 
+    @PostMapping("/login/google/callback")
+    public AuthTokenResponse googleCallback(@Valid @RequestBody LoginRequests.GoogleCodeLoginRequest request) {
+        return loginService.loginWithGoogleCode(request.code());
+    }
+
     @PostMapping("/refresh")
     public AuthTokenResponse refresh(@Valid @RequestBody LoginRequests.RefreshRequest request) {
         return loginService.refresh(request.refreshToken());

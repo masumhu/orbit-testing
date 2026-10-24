@@ -63,6 +63,34 @@ public class SocialIdentityVerifier {
         }
     }
 
+    public ProviderIdentity verifyGoogleAuthorizationCode(String code) {
+        if (properties.googleClientId() == null || properties.googleClientId().isBlank()
+                || properties.googleClientSecret() == null || properties.googleClientSecret().isBlank()) {
+            throw new IllegalStateException("Google website sign-in is not configured");
+        }
+        if (code == null || code.isBlank()) throw new IllegalArgumentException("Google authorization code is required");
+        try {
+            MultiValueMap<String, String> form = new LinkedMultiValueMap<>();
+            form.add("client_id", properties.googleClientId());
+            form.add("client_secret", properties.googleClientSecret());
+            form.add("code", code);
+            form.add("redirect_uri", properties.googleRedirectUri());
+            form.add("grant_type", "authorization_code");
+            Map<?, ?> tokenResponse = restClient.post()
+                    .uri("https://oauth2.googleapis.com/token")
+                    .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                    .body(form)
+                    .retrieve().body(Map.class);
+            Object idToken = tokenResponse == null ? null : tokenResponse.get("id_token");
+            if (!(idToken instanceof String token) || token.isBlank()) {
+                throw new IllegalArgumentException("Google did not return an identity token");
+            }
+            return verifyGoogle(token);
+        } catch (RestClientException ex) {
+            throw new IllegalArgumentException("Could not complete Google sign-in");
+        }
+    }
+
     private ProviderIdentity verifyGoogle(String idToken) {
         if (properties.googleClientId() == null || properties.googleClientId().isBlank()) {
             throw new IllegalStateException("Google sign-in is not configured");

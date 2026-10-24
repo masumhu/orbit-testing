@@ -51,6 +51,12 @@ public class RegistrationController {
         return registrationService.requestGitHubOtp(request);
     }
 
+    @PostMapping("/google/callback")
+    @ResponseStatus(HttpStatus.ACCEPTED)
+    public OtpIssuedResponse requestGoogleOtp(@Valid @RequestBody RegistrationRequests.GoogleCodeRegistrationRequest request) {
+        return registrationService.requestGoogleOtp(request);
+    }
+
     @PostMapping("/verify-otp")
     @ResponseStatus(HttpStatus.CREATED)
     public RegistrationResponse verifyOtp(@Valid @RequestBody VerifyOtpRequest request) {

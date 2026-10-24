@@ -10,6 +10,8 @@ public record RegistrationProperties(
         int maxOtpAttempts,
         String otpHmacSecret,
         String googleClientId,
+        String googleClientSecret,
+        String googleRedirectUri,
         String githubClientId,
         String githubClientSecret,
         String githubRedirectUri
